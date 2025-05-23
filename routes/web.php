@@ -13,9 +13,9 @@ Route::get('/test-http', function () {
     return $res->json();
 });
 
-Route::get('/ddf-test', function (DdfApiService $ddf) {
-    $data = $ddf->getOpenHouses();
-    return response()->json($data);
-});
+//Route::get('/ddf-test', function (DdfApiService $ddf) {
+//    $data = $ddf->getOpenHouses();
+//    return response()->json($data);
+//});
 
 
