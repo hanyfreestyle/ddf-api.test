@@ -35,4 +35,9 @@ return [
         'client_id' => env('DDF_CLIENT_ID'),
         'client_secret' => env('DDF_CLIENT_SECRET'),
     ],
+
+    'ddf_demo' => [
+        'client_id' => env('DEMO_CLIENT_ID'),
+        'client_secret' => env('DEMO_CLIENT_SECRET'),
+    ],
 ];

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\MetadataController;
 use App\Services\DdfApiService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
@@ -7,6 +8,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('test/metadata', [MetadataController::class, 'index']);
+Route::get('test/metadata/{resource}', [MetadataController::class, 'showResource']);
 
 Route::get('/test-http', function () {
     $res = Http::get('https://jsonplaceholder.typicode.com/posts/1');
@@ -36,17 +40,6 @@ Route::get('/ddf/metadata-all', function () {
 
     return response()->json($results); // أو return view لو عاوز HTML
 });
-
-
-
-
-
-
-
-
-
-
-
 
 
 Route::get('/ddf/metadata-list', function () {
@@ -147,8 +140,6 @@ Route::get('/ddf/metadata-list', function () {
 });
 
 
-
-
 // Route 2: عرض القيم الخاصة بأي Lookup
 Route::get('/ddf/metadata-values/{lookup}', function ($lookup) {
     $loginUrl = 'https://data.crea.ca/Login.svc/Login';
@@ -195,10 +186,10 @@ Route::get('/ddf/metadata-values/{lookup}', function ($lookup) {
     $items = [];
     foreach ($xml->METADATA->{'METADATA-LOOKUP_TYPE'}->LookupType as $item) {
         $items[] = [
-            'id' => (string) $item->MetadataEntryID,
-            'value' => (string) $item->Value,
-            'name' => (string) $item->LongValue,
-            'short' => (string) $item->ShortValue,
+            'id' => (string)$item->MetadataEntryID,
+            'value' => (string)$item->Value,
+            'name' => (string)$item->LongValue,
+            'short' => (string)$item->ShortValue,
         ];
     }
 
