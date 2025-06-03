@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\MetadataController;
 use App\Http\Controllers\PublicMetadataController;
+use App\Http\Controllers\SmartMetadataController;
 use App\Services\DdfApiService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
@@ -9,6 +10,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/metadata/view', [SmartMetadataController::class, 'view']);
+Route::get('/metadata', [SmartMetadataController::class, 'ui']);
 Route::get('/metadata/show', [PublicMetadataController::class, 'show']);
 Route::get('/test/metadata/save', [MetadataController::class, 'saveAll']);
 Route::get('test/metadata', [MetadataController::class, 'index']);
