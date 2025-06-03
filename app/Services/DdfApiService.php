@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class DdfApiService {
     protected string $token;
@@ -11,21 +12,75 @@ class DdfApiService {
         $this->token = $this->getAccessToken();
     }
 
+
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
     protected function getAccessToken(): string {
         $response = Http::asForm()->post('https://identity.crea.ca/connect/token', [
             'grant_type' => 'client_credentials',
-            'client_id' => config('services.ddf.client_id'),
-            'client_secret' => config('services.ddf.client_secret'),
+            'client_id' => "CXLHfDVrziCfvwgCuL8nUahC",
+            'client_secret' => 'mFqMsCSPdnb5WO1gpEEtDCHH',
+//            'client_id' => config('services.ddf.client_id'),
+//            'client_secret' => config('services.ddf.client_secret'),
             'scope' => 'DDFApi_Read',
         ]);
 
         return $response['access_token'] ?? '';
     }
 
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
     public function getOpenHouses() {
         $response = Http::withToken($this->token)
-            ->get('https://ddfapi.realtor.ca/odata/v1/OpenHouse');
+            ->get('https://ddfapi.realtor.ca/odata/v1/Property');
 
         return $response->json();
     }
+
+
+    public function getPropertyByKey($propertyKey) {
+        // تنظيف المفتاح وإضافة الهروب للعلامات المفردة
+        $cleanedKey = str_replace("'", "''", $propertyKey);
+        $url = "https://ddfapi.realtor.ca/odata/v1/Property('{$cleanedKey}')";
+
+        $response = Http::withToken($this->token)
+            ->acceptJson()
+            ->get($url);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+         Log::error('DDF API request failed', [
+            'url' => $url,
+            'status' => $response->status(),
+            'body' => $response->body()
+        ]);
+
+        return [
+            'status' => $response->status(),
+            'error' => $response->body(),
+        ];
+    }
+
+
+
+
+    public function getPropertyKeyFromListingId(string $listingId) {
+        $response = Http::withToken($this->token)->get('https://ddfapi.realtor.ca/odata/v1/Property', [
+            '$filter' => "ListingID eq '$listingId'",
+            '$top' => 1,
+        ]);
+
+        if ($response->successful()) {
+            return  $data = $response->json();
+            return $data['value'][0]['Id'] ?? null; // ده هو PropertyKey المطلوب
+        }
+
+        return [
+            'status' => $response->status(),
+            'error' => $response->body(),
+        ];
+    }
+
 }

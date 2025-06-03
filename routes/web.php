@@ -18,6 +18,26 @@ Route::get('/ddf-test', function (DdfApiService $ddf) {
     return response()->json($data);
 });
 
+Route::get('/ddf-testId/', function (DdfApiService $ddf) {
+    $api = new DdfApiService();
+    $property = $api->getPropertyByKey(27062424);
+    return response()->json($property);
+});
+
+Route::get('/ddf-testId2/', function (DdfApiService $ddf) {
+    $api = new DdfApiService();
+    $property = $api->getPropertyKeyFromListingId(4143136);
+    return response()->json($property);
+});
+
+
+
+
+
+
+
+
+
 
 
 
