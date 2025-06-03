@@ -5,100 +5,101 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 
-class DdfService {
-    protected $token;
-    protected $metadataUrl;
+class DdfService
+{
+    protected string $username;
+    protected string $password;
+    protected string $sessionId;   // X-SESSIONID
+    protected string $baseUrl = 'https://data.crea.ca';
 
-    public function __construct() {
-        $this->token = $this->getAccessToken();
-        $this->metadataUrl = 'https://data.crea.ca/Metadata.svc/GetMetadata';
+    public function __construct()
+    {
+        $this->username = 'CXLHfDVrziCfvwgCuL8nUahC';
+        $this->password = 'mFqMsCSPdnb5WO1gpEEtDCHH';
+        $this->sessionId = $this->loginAndCacheSession();
     }
+//DEMO_CLIENT_ID=CXLHfDVrziCfvwgCuL8nUahC
+//DEMO_CLIENT_SECRET=mFqMsCSPdnb5WO1gpEEtDCHH
+    /**
+     * يسجِّل الدخول (DigestAuth) ويحفظ X-SESSIONID فى الكاش ساعة.
+     */
+    protected function loginAndCacheSession(): string
+    {
+        return Cache::remember('ddf_session_id', 3600, function () {
+            $response = Http::withDigestAuth($this->username, $this->password)
+                ->accept('text/xml')
+                ->get("{$this->baseUrl}/Login.svc/Login");
 
-    protected function getAccessToken(): string {
-        return Cache::remember('ddf_access_token', 3600, function () {
-            $response = Http::asForm()->post('https://identity.crea.ca/connect/token', [
-                'grant_type' => 'client_credentials',
-                'client_id' => config('services.ddf_demo.client_id'),
-                'client_secret' => config('services.ddf_demo.client_secret'),
-                'scope' => 'DDFApi_Read DDFApi_FullAccess'
-            ]);
-
-            if ($response->successful()) {
-                return $response->json()['access_token'];
+            if (!$response->successful()) {
+                throw new \RuntimeException('DDF login failed: ' . $response->status());
             }
 
-            throw new \Exception('Failed to get DDF access token');
+            // استخرج قيمة X-SESSIONID من ترويسة Set-Cookie
+            $cookieHeader = collect($response->header('Set-Cookie'))
+                ->first(fn ($c) => str_contains($c, 'X-SESSIONID'));
+
+            if (!preg_match('/X-SESSIONID=([^;]+)/', $cookieHeader, $m)) {
+                throw new \RuntimeException('X-SESSIONID cookie missing');
+            }
+
+            return $m[1];
         });
     }
 
     /**
-     * جلب جميع أنواع البيانات الوصفية المتاحة
+     * طلب عام لـ GetMetadata.
      */
-    public function getAllMetadataTypes() {
-        // أنواع البيانات الوصفية الأساسية
-        $metadataTypes = [
+    protected function requestMetadata(array $query): string
+    {
+        return Http::withDigestAuth($this->username, $this->password)
+            ->withHeaders([
+                'Accept' => 'text/xml',
+                'Cookie' => "X-SESSIONID={$this->sessionId}",
+            ])
+            ->get("{$this->baseUrl}/Metadata.svc/GetMetadata", $query)
+            ->throw()      // سيرمى استثناء إذا لم ينجح
+            ->body();
+    }
+
+    /** جلب الأنواع الأساسية */
+    public function getAllMetadataTypes(): array
+    {
+        $types = [
             'METADATA-SYSTEM',
             'METADATA-RESOURCE',
             'METADATA-CLASS',
             'METADATA-LOOKUP',
-            'METADATA-LOOKUP_TYPE'
+            'METADATA-LOOKUP_TYPE',
         ];
 
-        $results = [];
-
-        foreach ($metadataTypes as $type) {
-            $response = Http::withToken($this->token)
-                ->withHeaders(['Accept' => 'application/json'])
-                ->get($this->metadataUrl, [
-                    'Type' => $type,
-                    'ID' => '*', // للحصول على جميع السجلات
-                    'Format' => 'STANDARD-XML'
-                ]);
-
-            if ($response->successful()) {
-                $results[$type] = $response->body();
-            } else {
-                $results[$type] = [
-                    'error' => $response->status(),
-                    'body' => $response->body()
-                ];
-            }
+        $out = [];
+        foreach ($types as $type) {
+            $out[$type] = $this->requestMetadata([
+                'Type'   => $type,
+                'ID'     => '*',
+                'Format' => 'STANDARD-XML',
+            ]);
         }
-
-        return $results;
+        return $out;
     }
 
-    /**
-     * جلب البيانات الوصفية لمورد معين (مثل Property)
-     */
-    public function getResourceMetadata(string $resource) {
-        $types = [
-            'METADATA-CLASS' => $resource,
-            'METADATA-LOOKUP' => $resource,
-            'METADATA-TABLE' => "$resource:Property" // مثال: Property:Property
+    /** جلب بيانات وصفية لمورد (Property مثلاً) */
+    public function getResourceMetadata(string $resource): array
+    {
+        $queries = [
+            'METADATA-CLASS'        => ['ID' => $resource],
+            'METADATA-LOOKUP'       => ['ID' => $resource],
+            'METADATA-LOOKUP_TYPE'  => ['ID' => "{$resource}:*"],  // كل اللُّك-أبس للمورد
+            'METADATA-TABLE'        => ['ID' => "{$resource}:{$resource}"],
         ];
 
-        $results = [];
-
-        foreach ($types as $type => $id) {
-            $response = Http::withToken($this->token)
-                ->withHeaders(['Accept' => 'application/json'])
-                ->get($this->metadataUrl, [
-                    'Type' => $type,
-                    'ID' => $id,
-                    'Format' => 'STANDARD-XML'
-                ]);
-
-            if ($response->successful()) {
-                $results[$type] = $response->body();
-            } else {
-                $results[$type] = [
-                    'error' => $response->status(),
-                    'body' => $response->body()
-                ];
-            }
+        $out = [];
+        foreach ($queries as $type => $extra) {
+            $out[$type] = $this->requestMetadata(array_merge([
+                'Type'   => $type,
+                'Format' => 'STANDARD-XML',
+            ], $extra));
         }
-
-        return $results;
+        return $out;
     }
 }

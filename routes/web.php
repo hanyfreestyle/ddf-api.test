@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MetadataController;
+use App\Http\Controllers\PublicMetadataController;
 use App\Services\DdfApiService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
@@ -8,7 +9,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
-
+Route::get('/metadata/show', [PublicMetadataController::class, 'show']);
+Route::get('/test/metadata/save', [MetadataController::class, 'saveAll']);
 Route::get('test/metadata', [MetadataController::class, 'index']);
 Route::get('test/metadata/{resource}', [MetadataController::class, 'showResource']);
 
