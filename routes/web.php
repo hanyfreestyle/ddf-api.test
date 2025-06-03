@@ -12,7 +12,7 @@ Route::get('/', function () {
 });
 
 Route::get('/metadata/view', [SmartMetadataController::class, 'view']);
-Route::get('/metadata', [SmartMetadataController::class, 'ui']);
+
 Route::get('/metadata/show', [PublicMetadataController::class, 'show']);
 Route::get('/test/metadata/save', [MetadataController::class, 'saveAll']);
 Route::get('test/metadata', [MetadataController::class, 'index']);

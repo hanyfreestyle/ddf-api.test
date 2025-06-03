@@ -8,68 +8,71 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Http\Request;
 
 
-class SmartMetadataController extends Controller
-{
+class SmartMetadataController extends Controller {
     protected string $filePath;
 
-    public function __construct()
-    {
+    public function __construct() {
         $this->filePath = public_path('metadata.json');
     }
 
-    /**
-     * API: /metadata/view?key=...
-     */
-    public function view(Request $request): JsonResponse
-    {
+    public function view(Request $request) {
         if (!File::exists($this->filePath)) {
-            return response()->json(['error' => 'metadata.json file not found'], 404);
+            return response()->json(['error' => 'File not found'], 404);
         }
 
-        $json = File::get($this->filePath);
-        $data = json_decode($json, true);
+        $data = json_decode(File::get($this->filePath), true);
+        $key = $request->query('key');     // المفتاح الأساسي مثل METADATA-LOOKUP
+        $subKey = $request->query('sub');  // المفتاح الفرعي مثل PropertyType
 
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return response()->json(['error' => 'Invalid JSON format'], 500);
+        // الخطوة 1: عرض المفاتيح الرئيسية
+        if (!$key) {
+            return view('metadata.viewer', [
+                'level' => 1,
+                'keys' => array_keys($data)
+            ]);
         }
 
-        $keyPath = $request->query('key');
-
-        if (!$keyPath) {
-            return response()->json(array_keys($data));
+        if (!array_key_exists($key, $data)) {
+            return response()->json(['error' => 'Key not found'], 404);
         }
 
-        $keys = explode('.', $keyPath);
-        $current = $data;
+        $section = $data[$key];
 
-        foreach ($keys as $key) {
-            if (is_array($current)) {
-                if (array_key_exists($key, $current)) {
-                    $current = $current[$key];
-                } elseif (is_numeric($key) && isset($current[(int)$key])) {
-                    $current = $current[(int)$key];
-                } else {
-                    return response()->json(['error' => "Key not found: $keyPath"], 404);
-                }
-            } else {
-                return response()->json(['error' => "Key not found: $keyPath"], 404);
+        // الخطوة 3: عرض تفاصيل مفتاح فرعي
+        if ($subKey) {
+            if (!array_key_exists($subKey, $section)) {
+                return response()->json(['error' => 'Sub key not found'], 404);
             }
-        }
 
-        if (is_array($current)) {
-            if (array_keys($current) !== range(0, count($current) - 1)) {
-                return response()->json(['_keys' => array_keys($current)]);
+            $details = $section[$subKey];
+
+            $records = [];
+
+            if (isset($details['Lookup'])) {
+                $records = $details['Lookup'];
+            } elseif (isset($details['LookupValue'])) {
+                $records = $details['LookupValue'];
             }
+
+            return view('metadata.viewer', [
+                'level' => 3,
+                'title' => "$key > $subKey",
+                'records' => $records,
+            ]);
         }
 
-        return response()->json($current);
-    }
+        // الخطوة 2: عرض المفاتيح الفرعية داخل المفتاح الأساسي
+        $subKeys = array_keys($section);
 
-    /**
-     * Blade UI: /metadata
-     */
-    public function ui()
-    {
-        return view('metadata.viewer');
+        // استبعاد المفاتيح غير المفيدة
+        $excluded = ['METADATA', 'COLUMNS', 'DELIMITER'];
+        $filteredSubKeys = array_filter($subKeys, fn($k) => !in_array($k, $excluded));
+
+        return view('metadata.viewer', [
+            'level' => 2,
+            'title' => $key,
+            'keys' => $filteredSubKeys,
+            'parentKey' => $key
+        ]);
     }
 }
