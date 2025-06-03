@@ -30,6 +30,13 @@ Route::get('/ddf-testId2/', function (DdfApiService $ddf) {
     return response()->json($property);
 });
 
+Route::get('/ddf/metadata-all', function () {
+    $service = new DdfApiService();
+    $results = $service->getAllMetadataExamples();
+
+    return response()->json($results); // أو return view لو عاوز HTML
+});
+
 
 
 
@@ -52,6 +59,7 @@ Route::get('/ddf/metadata-list', function () {
     ];
 
     $lookupTypes = [
+        'MediaCategory',
         'AccessType',
         'Amenities',
         'AmenitiesNearby',
@@ -137,6 +145,8 @@ Route::get('/ddf/metadata-list', function () {
 
     return view('ddf.metadata-list', compact('lookupTypes'));
 });
+
+
 
 
 // Route 2: عرض القيم الخاصة بأي Lookup
