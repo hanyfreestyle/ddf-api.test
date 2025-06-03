@@ -8,22 +8,20 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Http\Request;
 
 
-class SmartMetadataController extends Controller {
+class SmartMetadataController extends Controller
+{
     protected string $filePath;
 
-    public function __construct() {
-        $this->filePath = public_path('metadata.json'); // يمكنك تعديله إذا الملف مش في public
-    }
-
-    public function ui() {
-        return view('metadata.viewer');
+    public function __construct()
+    {
+        $this->filePath = public_path('metadata.json');
     }
 
     /**
-     * عرض البيانات تدريجيًا حسب المفتاح المطلوب
-     * مثال: /metadata/view?key=METADATA-LOOKUP_TYPE.Status
+     * API: /metadata/view?key=...
      */
-    public function view(Request $request): JsonResponse {
+    public function view(Request $request): JsonResponse
+    {
         if (!File::exists($this->filePath)) {
             return response()->json(['error' => 'metadata.json file not found'], 404);
         }
@@ -35,11 +33,9 @@ class SmartMetadataController extends Controller {
             return response()->json(['error' => 'Invalid JSON format'], 500);
         }
 
-        // key يمكن أن يكون مثل: METADATA-LOOKUP_TYPE.Status
         $keyPath = $request->query('key');
 
         if (!$keyPath) {
-            // عرض المفاتيح العليا فقط
             return response()->json(array_keys($data));
         }
 
@@ -47,20 +43,33 @@ class SmartMetadataController extends Controller {
         $current = $data;
 
         foreach ($keys as $key) {
-            if (!is_array($current) || !array_key_exists($key, $current)) {
+            if (is_array($current)) {
+                if (array_key_exists($key, $current)) {
+                    $current = $current[$key];
+                } elseif (is_numeric($key) && isset($current[(int)$key])) {
+                    $current = $current[(int)$key];
+                } else {
+                    return response()->json(['error' => "Key not found: $keyPath"], 404);
+                }
+            } else {
                 return response()->json(['error' => "Key not found: $keyPath"], 404);
             }
-            $current = $current[$key];
         }
 
-        // لو النتيجة مصفوفة، نعرض مفاتيحها بدل المحتوى الكامل (لتصفح ذكي)
-        if (is_array($current) && array_keys($current) !== range(0, count($current) - 1)) {
-            return response()->json([
-                '_keys' => array_keys($current)
-            ]);
+        if (is_array($current)) {
+            if (array_keys($current) !== range(0, count($current) - 1)) {
+                return response()->json(['_keys' => array_keys($current)]);
+            }
         }
 
         return response()->json($current);
     }
 
+    /**
+     * Blade UI: /metadata
+     */
+    public function ui()
+    {
+        return view('metadata.viewer');
+    }
 }

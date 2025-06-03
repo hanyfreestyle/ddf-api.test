@@ -42,9 +42,9 @@
                 pathSpan.textContent = '/' + (path || '');
 
                 if (Array.isArray(data)) {
-                    data.forEach(key => addKeyToList(key, path));
+                    data.forEach((val, i) => addKeyToList(val, path, i));
                 } else if (data._keys) {
-                    data._keys.forEach(key => addKeyToList(key, path));
+                    data._keys.forEach((key, i) => addKeyToList(key, path, i));
                 } else {
                     const pre = document.createElement('pre');
                     pre.textContent = JSON.stringify(data, null, 2);
@@ -57,21 +57,24 @@
             });
     }
 
-    function addKeyToList(key, parentPath) {
+    function addKeyToList(key, parentPath, index = null) {
         const li = document.createElement('li');
-        const isString = typeof key === 'string';
-        const label = isString ? key : '[object]';
+        let label, nextPath;
 
-        li.innerHTML = `<span class="key ${isString ? '' : 'disabled'}">${label}</span>`;
-
-        if (isString) {
-            li.querySelector('.key').onclick = () => {
-                historyStack.push(parentPath);
-                const nextPath = parentPath ? `${parentPath}.${key}` : key;
-                currentPath = nextPath;
-                fetchData(nextPath);
-            };
+        if (typeof key === 'string') {
+            label = key;
+            nextPath = parentPath ? `${parentPath}.${key}` : key;
+        } else {
+            label = `[object] ${index !== null ? index : ''}`;
+            nextPath = parentPath ? `${parentPath}.${index}` : `${index}`;
         }
+
+        li.innerHTML = `<span class="key">${label}</span>`;
+        li.querySelector('.key').onclick = () => {
+            historyStack.push(parentPath);
+            currentPath = nextPath;
+            fetchData(nextPath);
+        };
 
         browser.appendChild(li);
     }
